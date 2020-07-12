@@ -1,6 +1,7 @@
 import calendar
 from datetime import datetime
 import logging
+import re
 
 from authenticate import Auth
 from strava import Strava
@@ -14,50 +15,76 @@ class Stats:
     def parse_query(self, query_str):
         """Parse the requested query."""
         # TODO: Do something better than string matching.
-        query_tokens = query_str.split(' ')
 
         params = {}
 
         # Max filter.
-        if 'longest' in query_tokens:
-            params['filter_attr'] = 'distance'
-            params['count'] = 1
-        elif 'fastest' in query_tokens:
-            params['filter_attr'] = 'speed'
-            params['count'] = 1
+        ma = re.match(r'([0-9]* ?)(longest|fastest|max elevation)', query_str)
+        if ma:
+            if ma.group(1):
+                params['count'] = int(ma.group(1).strip())
+            else:
+                params['count'] = 1
+            attr = ma.group(2)
+            if attr == 'longest':
+                params['filter_attr'] = 'distance'
+            elif attr == 'fastest':
+                params['filter_attr'] = 'speed'
+            else:
+                params['filter_attr'] = 'elevation'
 
         # Distance filter.
-        if '5k' in query_tokens:
-            params['distance'] = 5 * 1000
-        elif '10k' in query_tokens:
-            params['distance'] = 10 * 1000
-        elif '50k' in query_tokens:
-            params['distance'] = 50 * 1000
-        elif 'century' in query_tokens or '100k' in query_tokens:
-            params['distance'] = 100 * 1000
+        ma = re.search(r'(([0-9]+)k)|(century)', query_str)
+        if ma:
+            if ma.group(0) == 'century':
+                dist = 100
+            else:
+                dist = int(ma.group(2))
+            params['distance'] = dist * 1000
 
         # Get time frame.
-        if 'last month' in query_str:
+        # Note: the below regex matches a typo: sepember.
+        ma = re.search(r'(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|'
+                       r'aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)|'
+                       r'((?:this|last) (?:month|year))', query_str)
+        if ma:
             now = datetime.now()
-            month_length = calendar.monthrange(now.year, now.month - 1)[1]
-            params['after'] = datetime(now.year, now.month - 1, 1, 0, 0, 0).timestamp()
-            params['before'] = datetime(now.year, now.month - 1, month_length,
+            if ma.group(1):
+                month_name = ma.group(1).capitalize()
+                if len(month_name) == 3:
+                    month_beg = month_end = list(calendar.month_abbr).index(month_name)
+                else:
+                    month_beg = month_end = list(calendar.month_name).index(month_name)
+                year = now.year
+                day_end = calendar.monthrange(year, month_end)[1]
+            else:
+                if 'last' in ma.group(2):
+                    if 'year' in ma.group(2):
+                        year = now.year - 1
+                        month_beg = 1
+                        month_end = 12
+                        day_end = 31
+                    else:
+                        year = now.year
+                        month_beg = month_end = now.month - 1
+                        day_end = calendar.monthrange(year, month_end)[1]
+                else:
+                    if 'year' in ma.group(2):
+                        month_beg = 1
+                        month_end = now.month - 1
+                    else:
+                        month_beg = month_end = now.month
+                    day_end = now.day
+                    year = now.year
+
+            params['after'] = datetime(year, month_beg, 1, 0, 0, 0).timestamp()
+            params['before'] = datetime(year, month_end, day_end,
                                         23, 59, 59).timestamp()
-        elif 'this month' in query_str:
-            now = datetime.now()
-            params['after'] = datetime(now.year, now.month, 1, 0, 0, 0).timestamp()
-        elif 'this year' in query_str:
-            now = datetime.now()
-            params['after'] = datetime(now.year, 1, 1, 0, 0, 0).timestamp()
-        else:
-            # Default is all-time.
-            pass
 
         # Get activity type.
-        if 'run' in query_tokens:
-            params['type'] = Strava.Type.run
-        elif 'ride' in query_tokens:
-            params['type'] = Strava.Type.ride
+        # This is a mandatory field. There must be a match.
+        ma = re.search(r'(run|ride|walk)s?', query_str)
+        params['type'] = ma.group(1).capitalize()
 
         return params
 
@@ -69,7 +96,7 @@ class Stats:
         activities = Strava.get_activities(self.auth, params)
 
         if len(activities) == 0:
-            logging.warning("There are no activites that matched your query: %s", query_str)
+            logging.warning("There are no activites that matched your query: %s\n", query_str)
             return
 
         print()
