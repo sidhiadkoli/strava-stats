@@ -6,6 +6,7 @@ class Strava:
     class Type:
         ride = 'Ride'
         run = 'Run'
+        walk = 'Walk'
 
     def filter_activities(activities, params):
         """Returns a list of activities filtered by the given parameters."""
@@ -16,8 +17,12 @@ class Strava:
                 def func(a): return a['distance']
             elif params['filter_attr'] == 'speed':
                 # Get fastest activity first.
-                # Note that we are computing using elapsed time.
-                def func(a): return a['distance'] / a['elapsed_time']
+                # Note that we are computing using elapsed time for runs/walks
+                # and moving time for rides.
+                if params['type'] == Strava.Type.ride:
+                    def func(a): return a['distance'] / a['moving_time']
+                else:
+                    def func(a): return a['distance'] / a['elapsed_time']
             else:  # elevation
                 def func(a): return a['total_elevation_gain']
             activities = sorted(activities,
@@ -74,14 +79,14 @@ class Strava:
         print(f"Date: {act['start_date_local']}")
         print(f"Distance: {round(act['distance']/1000, 2)}km")
 
-        if act['type'] == Strava.Type.ride:
-            print('Moving speed: '
-                  f"{Strava.format_speed(act['distance'], act['moving_time'])}")
-            print('Elapsed speed: '
-                  f"{Strava.format_speed(act['distance'], act['elapsed_time'])}")
-        else:
+        if act['type'] == Strava.Type.run:
             print('Moving pace: '
                   f"{Strava.format_pace(act['distance'], act['moving_time'])}")
             print('Elapsed pace: '
                   f"{Strava.format_pace(act['distance'], act['elapsed_time'])}")
+        else:
+            print('Moving speed: '
+                  f"{Strava.format_speed(act['distance'], act['moving_time'])}")
+            print('Elapsed speed: '
+                  f"{Strava.format_speed(act['distance'], act['elapsed_time'])}")
         print(f"Elevation gain: {round(act['total_elevation_gain'])}m")
