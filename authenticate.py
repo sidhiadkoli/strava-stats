@@ -48,23 +48,23 @@ class Auth:
                      'refresh_token': self._refresh_token}
         self._post_and_store_tokens('https://www.strava.com/api/v3/oauth/token', exp_query)
 
-    def _post_and_store_token(self, url, query):
+    def _post_and_store_tokens(self, url, query):
         """Post the request and store the tokens received in the response."""
         resp = requests.post(url, data=query)
 
-        if not resp.ok():
+        if not resp.ok:
             logging.error("Unable to get tokens. %s", resp)
             resp.raise_for_status()
 
         tokens = resp.json()
         self._access_token = tokens['access_token']
         self._refresh_token = tokens['refresh_token']
-        self._expiration = tokens['expires_at']
+        self._expiration = float(tokens['expires_at'])
 
     @property
     def access_token(self):
         """Get access token. Refresh it if it has expired."""
-        if time.time() > self.expiration:
+        if time.time() > self._expiration:
             self._handle_expiration()
 
         return self._access_token
