@@ -16,8 +16,8 @@ def main():
     while stats_query != 'exit':
         try:
             ss.resolve_query(stats_query)
-        except Exception:
-            logging.exception('Unable to execute query.')
+        except Exception as e:
+            logging.error("Unable to execute query. %s", e)
 
         # Get next query.
         stats_query = input('Enter query: ').strip().lower()

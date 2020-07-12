@@ -96,6 +96,8 @@ class Stats:
         # Get activity type.
         # This is a mandatory field. There must be a match.
         ma = re.search(r'(run|ride|walk)s?', query_str)
+        if not ma:
+            raise ValueError('Expecting an activity of either run, ride, or walk.')
 
         params['type'] = ma.group(1).capitalize()
 
