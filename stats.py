@@ -59,20 +59,20 @@ class Stats:
                 day_end = calendar.monthrange(year, month_end)[1]
             else:
                 if 'last' in ma.group(2):
-                    if 'year' in ma.group(2):
+                    if 'year' in ma.group(2):  # last year
                         year = now.year - 1
                         month_beg = 1
                         month_end = 12
                         day_end = 31
-                    else:
+                    else:  # last month
                         year = now.year
                         month_beg = month_end = now.month - 1
                         day_end = calendar.monthrange(year, month_end)[1]
                 else:
-                    if 'year' in ma.group(2):
+                    if 'year' in ma.group(2):  # this year
                         month_beg = 1
-                        month_end = now.month - 1
-                    else:
+                        month_end = now.month
+                    else:  # this month
                         month_beg = month_end = now.month
                     day_end = now.day
                     year = now.year
@@ -84,6 +84,7 @@ class Stats:
         # Get activity type.
         # This is a mandatory field. There must be a match.
         ma = re.search(r'(run|ride|walk)s?', query_str)
+
         params['type'] = ma.group(1).capitalize()
 
         return params
