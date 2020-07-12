@@ -19,7 +19,7 @@ class Stats:
         params = {}
 
         # Max filter.
-        ma = re.match(r'([0-9]* ?)(longest|fastest|max elevation)', query_str)
+        ma = re.search(r'([0-9]* ?)(longest|fastest|max elevation)', query_str)
         if ma:
             if ma.group(1):
                 params['count'] = int(ma.group(1).strip())
@@ -32,6 +32,9 @@ class Stats:
                 params['filter_attr'] = 'speed'
             else:
                 params['filter_attr'] = 'elevation'
+
+        if 'total' in query_str:
+            params['total'] = True
 
         # Distance filter.
         ma = re.search(r'(([0-9]+)k)|(century)', query_str)
@@ -101,6 +104,10 @@ class Stats:
             return
 
         print()
-        for act in activities:
-            Strava.print_activity(act)
-            print()
+        if params.get('total', False):
+            # Print the number of activities.
+            print(f"{query_str}: {len(activities)}\n")
+        else:
+            for act in activities:
+                Strava.print_activity(act)
+                print()
