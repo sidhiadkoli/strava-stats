@@ -11,7 +11,7 @@ def main():
     """Loop to handle user's stats queries."""
     ss = Stats()
 
-    stats_query = input('Enter query: ').lower()
+    stats_query = input('Enter query: ').strip().lower()
 
     while stats_query != 'exit':
         try:
@@ -20,7 +20,7 @@ def main():
             logging.exception('Unable to execute query.')
 
         # Get next query.
-        stats_query = input('Enter query: ').lower()
+        stats_query = input('Enter query: ').strip().lower()
 
 
 def parse_arguments(args):

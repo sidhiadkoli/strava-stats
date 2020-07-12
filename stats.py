@@ -18,6 +18,9 @@ class Stats:
 
         params = {}
 
+        # After parsing each section, remove that section from the string to
+        # prevent accidental regex errors because of string match.
+
         # Max filter.
         ma = re.search(r'([0-9]* ?)(longest|fastest|max elevation)', query_str)
         if ma:
@@ -32,9 +35,13 @@ class Stats:
                 params['filter_attr'] = 'speed'
             else:
                 params['filter_attr'] = 'elevation'
+            query_str = query_str.replace(ma.group(0), '', 1)
 
-        if 'total' in query_str:
-            params['total'] = True
+        # Aggregate stats.
+        ma = re.search(r'total\s?(distance|time|elevation)?', query_str)
+        if ma:
+            params['total'] = ma.group(1) if ma.group(1) else 'count'
+            query_str = query_str.replace(ma.group(0), '', 1)
 
         # Distance filter.
         ma = re.search(r'(([0-9]+)k)|(century)', query_str)
@@ -44,6 +51,7 @@ class Stats:
             else:
                 dist = int(ma.group(2))
             params['distance'] = dist * 1000
+            query_str = query_str.replace(ma.group(0), '', 1)
 
         # Get time frame.
         # Note: the below regex matches a typo: sepember.
@@ -83,6 +91,7 @@ class Stats:
             params['after'] = datetime(year, month_beg, 1, 0, 0, 0).timestamp()
             params['before'] = datetime(year, month_end, day_end,
                                         23, 59, 59).timestamp()
+            query_str = query_str.replace(ma.group(0), '', 1)
 
         # Get activity type.
         # This is a mandatory field. There must be a match.
@@ -104,9 +113,18 @@ class Stats:
             return
 
         print()
-        if params.get('total', False):
-            # Print the number of activities.
-            print(f"{query_str}: {len(activities)}\n")
+        aggregate = params.get('total')
+        if aggregate:
+            print(f"{aggregate.capitalize()}: ", end='')
+            if aggregate == 'count':
+                print(f"{len(activities)}")
+            elif aggregate == 'distance':
+                print(f"{Strava.format_distance(Strava.get_total_distance(activities))}")
+            elif aggregate == 'time':
+                print(f"{Strava.format_time(Strava.get_total_time(activities))}")
+            else:  # Total elevation.
+                print(f"{Strava.get_total_elevation(activities)}m")
+            print()
         else:
             for act in activities:
                 Strava.print_activity(act)

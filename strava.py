@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 import time
 
 import requests
@@ -53,6 +54,22 @@ class Strava:
             activities = activities[:params['count']]
 
         return activities
+
+    def get_aggregate(activities, prop):
+        """Gets the aggregate of the given property across all given activities."""
+        return sum([a[prop] for a in activities])
+
+    def get_total_distance(activities):
+        """Returns total distance across given activities in m."""
+        return Strava.get_aggregate(activities, 'distance')
+
+    def get_total_time(activities):
+        """Returns total moving time across given activities in seconds."""
+        return Strava.get_aggregate(activities, 'moving_time')
+
+    def get_total_elevation(activities):
+        """Returns total elevatio ngain across given activities in m."""
+        return Strava.get_aggregate(activities, 'total_elevation_gain')
 
     def get_activity_timestamp(activity):
         """Get a datetime object of the activity's start time."""
@@ -122,13 +139,21 @@ class Strava:
 
         return Strava.filter_activities(activities, params)
 
+    def format_time(seconds):
+        """Format time given time in seconds."""
+        return str(timedelta(seconds=seconds))
+
+    def format_distance(distance):
+        """Format distance given in m."""
+        return f"{round(distance / 1000, 2)}km"
+
     def format_speed(distance, time):
-        """Format speed in km/hr."""
+        """Format speed in km/hr given distance in meters and time in seconds."""
         speed = distance / time * 60 * 60 / 1000
         return f"{round(speed, 2)}km/hr"
 
     def format_pace(distance, time):
-        """Format pace in min/km"""
+        """Format pace in min/km given distance in meters and time in seconds."""
         pace = time / distance * 1000 / 60
         pace_min = int(pace)
         pace_sec = int((pace - int(pace)) * 60)
