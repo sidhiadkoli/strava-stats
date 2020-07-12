@@ -1,3 +1,6 @@
+from datetime import datetime
+import time
+
 import requests
 
 
@@ -7,6 +10,20 @@ class Strava:
         ride = 'Ride'
         run = 'Run'
         walk = 'Walk'
+
+    # Cache queried activities and their corresponding date ranges.
+    _activities_cache = []
+    _date_ranges = []
+
+    def _remove_dups(activities):
+        """Removes duplicate activities in sorted list."""
+        prev = None
+        uniq_activities = []
+        for a in activities:
+            if a['id'] != prev:
+                uniq_activities.append(a)
+                prev = a['id']
+        return uniq_activities
 
     def filter_activities(activities, params):
         """Returns a list of activities filtered by the given parameters."""
@@ -37,6 +54,11 @@ class Strava:
 
         return activities
 
+    def get_activity_timestamp(activity):
+        """Get a datetime object of the activity's start time."""
+        datetime_str = activity['start_date_local'][:-1]  # Ignore the Z at the end.
+        return datetime.timestamp(datetime.fromisoformat(datetime_str))
+
     def get_activities(auth, params):
         """Gets all activities of the authenticated user in an optional time range."""
         query_params = {}
@@ -45,19 +67,58 @@ class Strava:
         if 'after' in params:
             query_params['after'] = params['after']
 
-        activities = []
-        page = 1
-        while True:
-            query_params['page'] = page
-            res = requests.get('https://www.strava.com/api/v3/athlete/activities',
-                               params=query_params,
-                               headers={'Authorization': f"Bearer {auth.access_token}"})
-            res.raise_for_status()
-            if len(res.json()) == 0:
-                break
+        # Check if we have cached the activities in the requested date range.
+        if '*' in Strava._date_ranges:
+            # The cache contains all activities.
+            after = params.get('after', Strava.get_activity_timestamp(Strava._activities_cache[0]))
+            before = params.get('before', time.time())
+            activities = [a for a in Strava._activities_cache
+                          if (after <= Strava.get_activity_timestamp(a) and
+                              before >= Strava.get_activity_timestamp(a))]
+        elif 'after' in params:
+            # Check if the 'before' and 'after' datetimes are within a date range.
+            after = params['after']
+            before = params.get('before', time.time())
+            dr = [(date[0], date[1])
+                  for date in Strava._date_ranges if after >= date[0] and before <= date[1]]
+            if len(dr) > 0:
+                activities = [a for a in Strava._activities_cache
+                              if (after <= Strava.get_activity_timestamp(a) and
+                                  before >= Strava.get_activity_timestamp(a))]
 
-            activities += res.json()
-            page += 1
+        if 'activities' not in locals():
+            # We don't have the requested activities cached. Get it from server.
+            activities = []
+            page = 1
+            while True:
+                query_params['page'] = page
+                res = requests.get('https://www.strava.com/api/v3/athlete/activities',
+                                   params=query_params,
+                                   headers={'Authorization': f"Bearer {auth.access_token}"})
+                res.raise_for_status()
+                if len(res.json()) == 0:
+                    break
+
+                activities += res.json()
+                page += 1
+
+            # Update cache.
+            Strava._activities_cache.extend(activities)
+            Strava._activities_cache.sort(key=lambda a: Strava.get_activity_timestamp(a))
+            Strava._activities_cache = Strava._remove_dups(Strava._activities_cache)
+
+            # Update date range list.
+            if 'after' not in params and 'before' not in params:
+                # We have all stats. No need to store date range.
+                Strava._date_ranges = ['*']
+            elif 'after' in params:
+                if 'before' not in params:
+                    before = datetime.now()
+                    before.replace(hour=23, minute=59, second=59)
+                    before = datetime.timestamp(before)
+                else:
+                    before = params['before']
+                Strava._date_ranges.append((params['after'], before))
 
         return Strava.filter_activities(activities, params)
 
