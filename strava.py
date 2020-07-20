@@ -163,7 +163,7 @@ class Strava:
         print(f"Name: {act['name']}")
         print(f"Type: {act['type']}")
         print(f"Date: {act['start_date_local']}")
-        print(f"Distance: {round(act['distance']/1000, 2)}km")
+        print(f"Distance: {Strava.format_distance(act['distance'])}")
 
         if act['type'] == Strava.Type.run:
             print('Moving pace: '
@@ -175,4 +175,4 @@ class Strava:
                   f"{Strava.format_speed(act['distance'], act['moving_time'])}")
             print('Elapsed speed: '
                   f"{Strava.format_speed(act['distance'], act['elapsed_time'])}")
-        print(f"Elevation gain: {round(act['total_elevation_gain'])}m")
+        print(f"Elevation gain: {round(act['total_elevation_gain'], 2)}m")

@@ -8,6 +8,11 @@ from strava import Strava
 
 
 class Stats:
+    marathon = 42.195
+    milestones = {Strava.Type.run: [5, 10, marathon/2, marathon],
+                  Strava.Type.walk: [5, 10],
+                  Strava.Type.ride: [50, 100]}
+
     """Get requested statistics of the user's activities."""
     def __init__(self):
         self.auth = Auth()
@@ -37,17 +42,31 @@ class Stats:
                 params['filter_attr'] = 'elevation'
             query_str = query_str.replace(ma.group(0), '', 1)
 
+        # User can request for general stats or aggregate stats. Both simulataneously
+        # doesn't make sense.
+
+        # General stats.
+        ma = re.search(r'\bstats\b', query_str)
+        if ma:
+            params['total'] = ['count', 'distance', 'time', 'elevation']
+            params['stats'] = True
+            query_str = query_str.replace(ma.group(0), '', 1)
+
         # Aggregate stats.
         ma = re.search(r'total\s?(distance|time|elevation)?', query_str)
         if ma:
-            params['total'] = ma.group(1) if ma.group(1) else 'count'
+            params['total'] = [ma.group(1)] if ma.group(1) else ['count']
             query_str = query_str.replace(ma.group(0), '', 1)
 
         # Distance filter.
-        ma = re.search(r'(([0-9]+)k)|(century)', query_str)
+        ma = re.search(r'(([0-9]+)k)|(century|(half |full )?marathon)', query_str)
         if ma:
             if ma.group(0) == 'century':
                 dist = 100
+            elif 'marathon' in ma.group(0):
+                dist = Stats.marathon
+                if 'half' in ma.group(0):
+                    dist = dist / 2
             else:
                 dist = int(ma.group(2))
             params['distance'] = dist * 1000
@@ -117,17 +136,27 @@ class Stats:
         print()
         aggregate = params.get('total')
         if aggregate:
-            print(f"{aggregate.capitalize()}: ", end='')
-            if aggregate == 'count':
-                print(f"{len(activities)}")
-            elif aggregate == 'distance':
-                print(f"{Strava.format_distance(Strava.get_total_distance(activities))}")
-            elif aggregate == 'time':
-                print(f"{Strava.format_time(Strava.get_total_time(activities))}")
-            else:  # Total elevation.
-                print(f"{Strava.get_total_elevation(activities)}m")
+            print('Total stats:')
+            for agg in aggregate:
+                print(f"{agg.capitalize()}: ", end='')
+                if agg == 'count':
+                    print(f"{len(activities)}")
+                elif agg == 'distance':
+                    print(f"{Strava.format_distance(Strava.get_total_distance(activities))}")
+                elif agg == 'time':
+                    print(f"{Strava.format_time(Strava.get_total_time(activities))}")
+                else:  # Total elevation.
+                    print(f"{round(Strava.get_total_elevation(activities), 2)}m")
+
+            if params.get('stats'):
+                for dist in Stats.milestones[params['type']]:
+                    params['distance'] = dist * 1000
+                    activities = Strava.get_activities(self.auth, params)
+                    if len(activities):  # Print the count only if there are activities.
+                        print(f"{dist}k: {len(activities)}")
             print()
         else:
+            # Print activity information.
             for act in activities:
                 Strava.print_activity(act)
                 print()

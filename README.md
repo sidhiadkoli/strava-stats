@@ -49,6 +49,14 @@ total runs this year
 total 50k rides
 ```
 
+### All stats.
+Instead of getting each aggregate stat separately, you can request for all stats: total distance, time and elevation gain, and total number of activities of certain milestone distances (eg: 50k for rides).
+
+Sample queries:
+```
+ride stats this month
+```
+
 ## Notes:
 - The queries are case insensitive.
 - The order of each of the above sections in the query doesn't matter. Eg: `fastest 5k run this year` is the same as `run 5k fastest this year`.
